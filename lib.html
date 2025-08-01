@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="de" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meine Bibliothek</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .off-canvas {
+            transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out;
+        }
+        .off-canvas.open {
+            transform: translateX(0);
+        }
+        .modal-backdrop {
+            transition: opacity 0.3s ease-in-out;
+        }
+        .modal-content {
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+            transform: translateY(-20px) scale(0.95);
+            opacity: 0;
+        }
+        .modal-backdrop.open .modal-content {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b; /* slate-800 */
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569; /* slate-600 */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b; /* slate-500 */
+        }
+        .filter-btn.active {
+            background-color: #4f46e5;
+            color: white;
+        }
+        .star {
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-300 antialiased h-full overflow-hidden">
+
+    <div class="flex h-full w-full flex-col md:flex-row">
+        <!-- Desktop Form & Mobile Off-Canvas Menu -->
+        <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 bg-slate-800/80 backdrop-blur-sm w-full max-w-sm p-6 off-canvas md:relative md:max-w-xs md:transform-none md:bg-slate-800 md:backdrop-blur-none md:transition-none border-r border-slate-700 flex flex-col">
+            <div class="flex justify-between items-center md:hidden mb-6">
+                <h2 class="text-xl font-bold text-white">Menü</h2>
+                <button id="close-menu-btn" class="text-slate-400 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            
+            <!-- User Session Info -->
+            <div id="user-session" class="hidden">
+                 <div class="flex items-center gap-3 mb-6">
+                    <img id="user-avatar" class="h-10 w-10 rounded-full" src="" alt="User Avatar">
+                    <div>
+                        <p id="user-display-name" class="text-sm font-medium text-white"></p>
+                        <button id="signout-btn" class="text-xs text-indigo-400 hover:underline">Abmelden</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Book Form -->
+            <form id="add-book-form" class="space-y-4 hidden">
+                <h2 class="text-2xl font-bold text-white hidden md:block">Buch hinzufügen</h2>
+                <div class="relative">
+                    <label for="title" class="block text-sm font-medium text-slate-300">Buchtitel</label>
+                    <input type="text" id="title" name="title" required autocomplete="off" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 h-11 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                    <div id="autocomplete-results" class="absolute z-10 w-full bg-slate-600 rounded-md shadow-lg mt-1 max-h-60 overflow-auto"></div>
+                </div>
+                <div>
+                    <label for="author" class="block text-sm font-medium text-slate-300">Autor</label>
+                    <input type="text" id="author" name="author" required class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 h-11 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div>
+                    <label for="medium" class="block text-sm font-medium text-slate-300">Medium</label>
+                    <select id="medium" name="medium" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 h-11 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <option>Physisches Buch</option>
+                        <option>Audible - Kauf</option>
+                        <option>Audible - Abo</option>
+                        <option>Spotify</option>
+                        <option>Kindle - Kauf</option>
+                        <option>Kindle - Abo</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition-colors duration-300 shadow-lg">Buch hinzufügen</button>
+            </form>
+
+            <!-- Auth Prompt -->
+            <div id="auth-prompt" class="mt-auto text-center hidden">
+                 <h2 class="text-2xl font-bold text-white hidden md:block mb-4">Meine Bibliothek</h2>
+                <p class="text-slate-400 mb-6">Melde dich an, um deine Bücher zu verwalten.</p>
+                <button id="google-signin-btn" class="w-full bg-white text-slate-700 font-semibold py-2 px-4 border border-slate-300 rounded-md shadow-sm hover:bg-slate-50 transition-colors flex items-center justify-center gap-3">
+                    <svg class="w-5 h-5" viewBox="0 0 48 48"><g><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path><path fill="none" d="M0 0h48v48H0z"></path></g></svg>
+                    Mit Google anmelden
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col h-full">
+            <!-- Mobile Header -->
+            <header class="md:hidden flex items-center justify-between p-4 bg-slate-800 shadow-md sticky top-0 z-10 border-b border-slate-700">
+                 <h1 class="text-xl font-bold text-white">Meine Bibliothek</h1>
+                <button id="open-menu-btn" class="text-slate-300 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                </button>
+            </header>
+            
+            <div id="main-content-area" class="hidden flex-1 flex-col">
+                <!-- Search and Filter Controls -->
+                <div class="p-4 md:px-8 md:pt-8 bg-slate-900 sticky top-[73px] md:top-0 z-10 border-b border-slate-800">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="md:col-span-1">
+                            <input type="search" id="search-input" placeholder="Suchen nach Titel oder Autor..." class="w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 h-11 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div class="flex items-center justify-center space-x-2 bg-slate-800 p-1 rounded-md">
+                            <button data-filter="all" class="filter-btn active w-full text-sm py-1.5 px-3 rounded-md transition-colors hover:bg-slate-700">Alle</button>
+                            <button data-filter="unread" class="filter-btn w-full text-sm py-1.5 px-3 rounded-md transition-colors hover:bg-slate-700">Ungelesen</button>
+                            <button data-filter="read" class="filter-btn w-full text-sm py-1.5 px-3 rounded-md transition-colors hover:bg-slate-700">Gelesen</button>
+                        </div>
+                        <div class="md:col-span-1">
+                            <select id="sort-select" class="w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 h-11 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="newest">Neueste zuerst</option>
+                                <option value="oldest">Älteste zuerst</option>
+                                <option value="title">Titel (A-Z)</option>
+                                <option value="author">Autor (A-Z)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Book List -->
+                <div id="book-list" class="flex-1 overflow-y-auto p-4 md:p-8 space-y-4">
+                    <div id="loading-indicator" class="text-center py-10">
+                        <p class="text-slate-400">Lade Bücher...</p>
+                    </div>
+                    <div id="empty-state" class="text-center py-10 hidden">
+                        <svg class="mx-auto h-12 w-12 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
+                        <h3 class="mt-2 text-sm font-medium text-white">Keine Bücher</h3>
+                        <p class="mt-1 text-sm text-slate-400">Füge dein erstes Buch über das Formular hinzu.</p>
+                    </div>
+                    <div id="no-results-state" class="text-center py-10 hidden">
+                        <svg class="mx-auto h-12 w-12 text-slate-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+                        <h3 class="mt-2 text-sm font-medium text-white">Keine Ergebnisse</h3>
+                        <p class="mt-1 text-sm text-slate-400">Passe deine Suche oder Filter an.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4 opacity-0 pointer-events-none modal-backdrop">
+        <div class="bg-slate-800 rounded-lg shadow-xl w-full max-w-lg modal-content border border-slate-700">
+            <form id="edit-book-form">
+                <div class="p-6">
+                    <h3 class="text-xl font-bold text-white mb-4">Eintrag bearbeiten</h3>
+                    <input type="hidden" id="edit-id">
+                    <div class="space-y-4">
+                        <div>
+                            <label for="edit-title" class="block text-sm font-medium text-slate-300">Buchtitel</label>
+                            <input type="text" id="edit-title" name="title" required class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 h-11 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label for="edit-author" class="block text-sm font-medium text-slate-300">Autor</label>
+                            <input type="text" id="edit-author" name="author" required class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 h-11 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                         <div>
+                            <label for="edit-description" class="block text-sm font-medium text-slate-300">Beschreibung</label>
+                            <textarea id="edit-description" name="description" rows="4" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                        </div>
+                        <div>
+                            <label for="edit-medium" class="block text-sm font-medium text-slate-300">Medium</label>
+                            <select id="edit-medium" name="medium" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 h-11 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                <option>Physisches Buch</option>
+                                <option>Audible - Kauf</option>
+                                <option>Audible - Abo</option>
+                                <option>Spotify</option>
+                                <option>Kindle - Kauf</option>
+                                <option>Kindle - Abo</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-slate-800 border-t border-slate-700 px-6 py-4 flex justify-end space-x-3 rounded-b-lg">
+                    <button type="button" id="cancel-edit-btn" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-md transition-colors">Abbrechen</button>
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition-colors">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4 opacity-0 pointer-events-none modal-backdrop">
+        <div class="bg-slate-800 rounded-lg shadow-xl w-full max-w-md modal-content border border-slate-700">
+            <div class="p-6 text-center">
+                 <svg class="mx-auto mb-4 h-14 w-14 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                <h3 class="text-lg font-normal text-slate-300 mb-5">Möchtest du dieses Buch wirklich löschen?</h3>
+                <button id="confirm-delete-btn" class="text-white bg-red-600 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm inline-flex items-center px-5 py-2.5 text-center mr-2">
+                    Ja, löschen
+                </button>
+                <button id="cancel-delete-btn" class="text-slate-900 bg-white hover:bg-slate-100 focus:ring-4 focus:ring-slate-300 rounded-lg border border-slate-200 text-sm font-medium px-5 py-2.5 hover:text-slate-900 focus:z-10">
+                    Nein, abbrechen
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signInWithCustomToken, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        
+        // --- Firebase Config ---
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "YOUR_API_KEY", authDomain: "YOUR_AUTH_DOMAIN", projectId: "YOUR_PROJECT_ID" };
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-book-tracker';
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        
+        // --- DOM Elements ---
+        const mainContentArea = document.getElementById('main-content-area');
+        const bookList = document.getElementById('book-list');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const emptyState = document.getElementById('empty-state');
+        const noResultsState = document.getElementById('no-results-state');
+        const titleInput = document.getElementById('title');
+        const authorInput = document.getElementById('author');
+        const autocompleteResults = document.getElementById('autocomplete-results');
+        // Auth
+        const authPrompt = document.getElementById('auth-prompt');
+        const googleSigninBtn = document.getElementById('google-signin-btn');
+        const userSession = document.getElementById('user-session');
+        const userAvatar = document.getElementById('user-avatar');
+        const userDisplayName = document.getElementById('user-display-name');
+        const signoutBtn = document.getElementById('signout-btn');
+        // Forms & Modals
+        const addBookForm = document.getElementById('add-book-form');
+        const editModal = document.getElementById('edit-modal');
+        const editBookForm = document.getElementById('edit-book-form');
+        const cancelEditBtn = document.getElementById('cancel-edit-btn');
+        const deleteModal = document.getElementById('delete-modal');
+        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+        const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+        // Mobile Menu
+        const openMenuBtn = document.getElementById('open-menu-btn');
+        const closeMenuBtn = document.getElementById('close-menu-btn');
+        const sidebar = document.getElementById('sidebar');
+        // Filter & Sort Controls
+        const searchInput = document.getElementById('search-input');
+        const filterContainer = document.querySelector('.flex.items-center.justify-center');
+        const sortSelect = document.getElementById('sort-select');
+
+        let booksCollection;
+        let unsubscribe;
+        let bookIdToDelete = null;
+
+        // --- State ---
+        let allBooks = [];
+        let currentSearch = '';
+        let currentSort = 'newest';
+        let currentFilter = 'all';
+
+        // --- Authentication ---
+        async function initializeAuth() {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                try {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                    console.log("Signed in with custom token.");
+                } catch (error) {
+                    console.error("Initial token sign-in failed", error);
+                }
+            }
+        }
+
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                // User is signed in.
+                const userId = user.uid;
+                booksCollection = collection(db, `artifacts/${appId}/users/${userId}/books`);
+                updateUIVisibility(true, user);
+                setupFirestoreListener();
+            } else {
+                // User is signed out.
+                if (unsubscribe) unsubscribe();
+                allBooks = [];
+                applyFiltersAndRender();
+                updateUIVisibility(false);
+            }
+        });
+        
+        googleSigninBtn.addEventListener('click', async () => {
+            const provider = new GoogleAuthProvider();
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                console.error("Google Sign-In Error", error);
+            }
+        });
+
+        signoutBtn.addEventListener('click', async () => {
+            await signOut(auth);
+        });
+
+        function updateUIVisibility(isLoggedIn, user = null) {
+            if (isLoggedIn) {
+                authPrompt.classList.add('hidden');
+                userSession.classList.remove('hidden');
+                addBookForm.classList.remove('hidden');
+                mainContentArea.classList.remove('hidden');
+                mainContentArea.classList.add('flex');
+                
+                userDisplayName.textContent = user.displayName || 'Nutzer';
+                userAvatar.src = user.photoURL || `https://placehold.co/40x40/475569/e2e8f0?text=${(user.displayName || 'A').charAt(0)}`;
+                userAvatar.onerror = () => { userAvatar.src = `https://placehold.co/40x40/475569/e2e8f0?text=${(user.displayName || 'A').charAt(0)}` };
+
+            } else {
+                authPrompt.classList.remove('hidden');
+                userSession.classList.add('hidden');
+                addBookForm.classList.add('hidden');
+                mainContentArea.classList.add('hidden');
+                mainContentArea.classList.remove('flex');
+            }
+        }
+
+        // --- Utility Functions ---
+        const debounce = (func, delay) => {
+            let timeout;
+            return (...args) => {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), delay);
+            };
+        };
+
+        // --- Google Books API ---
+        async function fetchBookCover(title, author) {
+            if (!title || !author) return 'https://placehold.co/300x450/334155/94a3b8?text=Kein+Cover';
+            try {
+                const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=intitle:${encodeURIComponent(title)}+inauthor:${encodeURIComponent(author)}&maxResults=1`);
+                if (!response.ok) throw new Error('Network response was not ok');
+                const data = await response.json();
+                const coverUrl = data.items?.[0]?.volumeInfo?.imageLinks?.thumbnail;
+                return coverUrl ? coverUrl.replace('http://', 'https://') : 'https://placehold.co/300x450/334155/94a3b8?text=Kein+Cover';
+            } catch (error) {
+                console.error("Error fetching book cover:", error);
+                return 'https://placehold.co/300x450/334155/94a3b8?text=Fehler';
+            }
+        }
+
+        async function fetchAutocompleteSuggestions(query) {
+            if (query.length < 3) {
+                autocompleteResults.innerHTML = '';
+                autocompleteResults.classList.add('hidden');
+                return;
+            }
+            try {
+                const response = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=5&printType=books`);
+                const data = await response.json();
+                const suggestions = data.items?.map(item => item.volumeInfo) || [];
+                renderAutocomplete(suggestions);
+            } catch (error) {
+                console.error("Autocomplete error:", error);
+            }
+        }
+
+        function renderAutocomplete(suggestions) {
+            if (suggestions.length === 0) {
+                autocompleteResults.innerHTML = '';
+                autocompleteResults.classList.add('hidden');
+                return;
+            }
+            autocompleteResults.innerHTML = suggestions.map(book => `
+                <div class="p-3 hover:bg-slate-700 cursor-pointer" data-title="${book.title}" data-author="${book.authors?.[0] || ''}">
+                    <p class="font-bold text-white text-sm">${book.title}</p>
+                    <p class="text-slate-300 text-xs">${book.authors?.join(', ') || 'Unbekannter Autor'}</p>
+                </div>
+            `).join('');
+            autocompleteResults.classList.remove('hidden');
+        }
+
+        // --- Firestore Listener ---
+        function setupFirestoreListener() {
+            if (unsubscribe) unsubscribe();
+            loadingIndicator.classList.remove('hidden');
+            const q = query(booksCollection);
+            unsubscribe = onSnapshot(q, (snapshot) => {
+                loadingIndicator.classList.add('hidden');
+                allBooks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                applyFiltersAndRender();
+            }, (error) => {
+                console.error("Error fetching books:", error);
+                loadingIndicator.textContent = "Fehler beim Laden der Bücher.";
+            });
+        }
+
+        // --- Core Render Logic ---
+        function applyFiltersAndRender() {
+            let processedBooks = [...allBooks];
+
+            if (currentFilter === 'read') processedBooks = processedBooks.filter(b => b.read);
+            else if (currentFilter === 'unread') processedBooks = processedBooks.filter(b => !b.read);
+
+            if (currentSearch) {
+                processedBooks = processedBooks.filter(b =>
+                    b.title.toLowerCase().includes(currentSearch) ||
+                    b.author.toLowerCase().includes(currentSearch)
+                );
+            }
+            
+            switch(currentSort) {
+                case 'oldest': processedBooks.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)); break;
+                case 'title': processedBooks.sort((a, b) => a.title.localeCompare(b.title)); break;
+                case 'author': processedBooks.sort((a, b) => a.author.localeCompare(b.author)); break;
+                default: processedBooks.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)); break;
+            }
+            
+            renderBooks(processedBooks);
+        }
+
+        function renderStars(rating = 0) {
+            let stars = '';
+            for (let i = 1; i <= 5; i++) {
+                const isFilled = i <= rating;
+                stars += `
+                    <svg class="star w-5 h-5 ${isFilled ? 'text-amber-400' : 'text-slate-500'} hover:text-amber-300" data-value="${i}" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                    </svg>
+                `;
+            }
+            return `<div class="flex items-center gap-1 rating-stars">${stars}</div>`;
+        }
+
+        function renderBooks(books) {
+            const listContent = bookList.querySelectorAll('div[data-id]');
+            listContent.forEach(el => el.remove());
+
+            emptyState.classList.toggle('hidden', allBooks.length > 0);
+            noResultsState.classList.toggle('hidden', !(allBooks.length > 0 && books.length === 0));
+
+            books.forEach(book => {
+                const bookEl = document.createElement('div');
+                bookEl.className = `bg-slate-800 shadow-lg rounded-lg p-4 flex flex-col md:flex-row items-start md:items-center gap-4 transition-all duration-300 border border-slate-700 ${book.read ? 'opacity-50' : ''}`;
+                bookEl.setAttribute('data-id', book.id);
+                
+                const coverSrc = book.coverUrl || 'https://placehold.co/300x450/334155/94a3b8?text=Lade...';
+
+                bookEl.innerHTML = `
+                    <img src="${coverSrc}" alt="Buchcover" class="w-24 md:w-20 h-auto rounded-md shadow-md object-cover self-center md:self-start flex-shrink-0">
+                    
+                    <div class="flex-grow w-full md:w-auto">
+                        <div class="flex flex-wrap items-baseline gap-x-3 mb-1">
+                            <h3 class="text-xl font-bold text-white">${book.title}</h3>
+                            <span class="text-xs text-slate-400 font-medium">${book.medium}</span>
+                        </div>
+                        ${renderStars(book.rating)}
+                        <p class="text-slate-400 text-sm mt-1">${book.author}</p>
+                        <p class="text-slate-300 text-sm mt-2 italic whitespace-pre-wrap ${book.description ? '' : 'hidden'}">${book.description || ''}</p>
+                    </div>
+
+                    <div class="flex items-center gap-4 self-end md:self-center mt-4 md:mt-0 flex-shrink-0">
+                        <label for="read-checkbox-${book.id}" class="relative inline-flex items-center cursor-pointer" title="Als gelesen markieren">
+                            <input id="read-checkbox-${book.id}" type="checkbox" class="read-checkbox sr-only peer" ${book.read ? 'checked' : ''}>
+                            <div class="w-7 h-7 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-offset-2 peer-focus:ring-offset-slate-800 peer-focus:ring-indigo-500 rounded-md peer peer-checked:bg-indigo-600 peer-checked:border-transparent border border-slate-600"></div>
+                            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                            </div>
+                        </label>
+                        <button class="edit-btn p-2 text-slate-400 hover:text-indigo-400 transition-colors">
+                           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z"></path></svg>
+                        </button>
+                        <button class="delete-btn p-2 text-slate-400 hover:text-red-400 transition-colors">
+                           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                `;
+                bookList.appendChild(bookEl);
+            });
+        }
+        
+        // --- Event Handlers ---
+        addBookForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!booksCollection) return;
+            
+            const title = titleInput.value;
+            const author = authorInput.value;
+            const addButton = addBookForm.querySelector('button[type="submit"]');
+            addButton.textContent = 'Füge hinzu...';
+            addButton.disabled = true;
+
+            const coverUrl = await fetchBookCover(title, author);
+
+            try {
+                await addDoc(booksCollection, {
+                    title: title, author: author,
+                    medium: addBookForm.medium.value,
+                    read: false, description: '', coverUrl: coverUrl, createdAt: new Date(), rating: 0
+                });
+                addBookForm.reset();
+                if(window.innerWidth < 768) closeMenuBtn.click();
+            } catch (error) {
+                console.error("Error adding book: ", error);
+            } finally {
+                addButton.textContent = 'Buch hinzufügen';
+                addButton.disabled = false;
+            }
+        });
+
+        bookList.addEventListener('change', async (e) => {
+            const target = e.target;
+            if (target.classList.contains('read-checkbox')) {
+                const bookEl = target.closest('[data-id]');
+                if (!bookEl) return;
+                const bookId = bookEl.dataset.id;
+                const bookDocRef = doc(db, booksCollection.path, bookId);
+                await updateDoc(bookDocRef, { read: target.checked });
+            }
+        });
+
+        bookList.addEventListener('click', async (e) => {
+            const target = e.target;
+            const bookEl = target.closest('[data-id]');
+            if (!bookEl) return;
+            const bookId = bookEl.dataset.id;
+            const bookDocRef = doc(db, booksCollection.path, bookId);
+
+            if (target.closest('.rating-stars')) {
+                const star = target.closest('.star');
+                if (star) {
+                    const rating = parseInt(star.dataset.value, 10);
+                    await updateDoc(bookDocRef, { rating });
+                }
+            } else if (target.closest('.edit-btn')) {
+                const bookData = allBooks.find(b => b.id === bookId);
+                openEditModal(bookData);
+            } else if (target.closest('.delete-btn')) {
+                 openDeleteModal(bookId);
+            }
+        });
+        
+        editBookForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('edit-id').value;
+            const bookDocRef = doc(db, booksCollection.path, id);
+            
+            const updatedData = {
+                title: document.getElementById('edit-title').value,
+                author: document.getElementById('edit-author').value,
+                medium: document.getElementById('edit-medium').value,
+                description: document.getElementById('edit-description').value,
+            };
+
+            const oldBook = allBooks.find(b => b.id === id);
+            if(updatedData.title !== oldBook.title || updatedData.author !== oldBook.author) {
+                 updatedData.coverUrl = await fetchBookCover(updatedData.title, updatedData.author);
+            }
+
+            await updateDoc(bookDocRef, updatedData);
+            closeModal(editModal);
+        });
+
+        // Autocomplete Handlers
+        titleInput.addEventListener('input', debounce((e) => {
+            fetchAutocompleteSuggestions(e.target.value);
+        }, 300));
+
+        autocompleteResults.addEventListener('click', (e) => {
+            const suggestion = e.target.closest('[data-title]');
+            if (suggestion) {
+                titleInput.value = suggestion.dataset.title;
+                authorInput.value = suggestion.dataset.author;
+                autocompleteResults.innerHTML = '';
+                autocompleteResults.classList.add('hidden');
+            }
+        });
+
+        // Filter & Sort Event Listeners
+        searchInput.addEventListener('input', (e) => {
+            currentSearch = e.target.value.toLowerCase().trim();
+            applyFiltersAndRender();
+        });
+        sortSelect.addEventListener('change', (e) => {
+            currentSort = e.target.value;
+            applyFiltersAndRender();
+        });
+        filterContainer.addEventListener('click', (e) => {
+            const btn = e.target.closest('.filter-btn');
+            if (!btn) return;
+            filterContainer.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentFilter = btn.dataset.filter;
+            applyFiltersAndRender();
+        });
+
+        // --- Modal & Menu Functions ---
+        function openModal(modalEl) {
+            modalEl.classList.remove('opacity-0', 'pointer-events-none');
+            modalEl.classList.add('open');
+        }
+        function closeModal(modalEl) {
+            modalEl.classList.add('opacity-0');
+            setTimeout(() => {
+                modalEl.classList.add('pointer-events-none');
+                modalEl.classList.remove('open');
+            }, 300);
+        }
+        function openEditModal(book) {
+            document.getElementById('edit-id').value = book.id;
+            document.getElementById('edit-title').value = book.title;
+            document.getElementById('edit-author').value = book.author;
+            document.getElementById('edit-medium').value = book.medium;
+            document.getElementById('edit-description').value = book.description;
+            openModal(editModal);
+        }
+        cancelEditBtn.addEventListener('click', () => closeModal(editModal));
+        function openDeleteModal(id) {
+            bookIdToDelete = id;
+            openModal(deleteModal);
+        }
+        cancelDeleteBtn.addEventListener('click', () => {
+            closeModal(deleteModal);
+            bookIdToDelete = null;
+        });
+        confirmDeleteBtn.addEventListener('click', async () => {
+            if(bookIdToDelete) {
+                await deleteDoc(doc(db, booksCollection.path, bookIdToDelete));
+                closeModal(deleteModal);
+                bookIdToDelete = null;
+            }
+        });
+        openMenuBtn.addEventListener('click', () => sidebar.classList.add('open'));
+        closeMenuBtn.addEventListener('click', () => sidebar.classList.remove('open'));
+
+        // --- Initial Load ---
+        initializeAuth();
+    </script>
+</body>
+</html>
