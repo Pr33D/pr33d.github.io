@@ -1,221 +1,334 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>High-Low Kartenspiel</title>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#1c1c1c">
-  <style>
-    body {
-      font-family: sans-serif;
-      text-align: center;
-      padding: 20px;
-      background: #1c1c1c;
-      color: white;
-    }
-    #credits {
-      font-size: 2em;
-      font-weight: bold;
-    }
-    .card {
-      font-size: 3em;
-      margin: 20px auto;
-      border: 2px solid white;
-      border-radius: 10px;
-      width: 100px;
-      height: 140px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: white;
-      color: black;
-    }
-    button {
-      font-size: 1em;
-      padding: 10px 15px;
-      margin: 5px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    .btn-higher { background: #4CAF50; color: white; }
-    .btn-lower { background: #F44336; color: white; }
-    .btn-equal { background: #2196F3; color: white; }
-    .btn-bet { background: #FFC107; color: black; }
-    .bet-controls {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 5px;
-      margin-bottom: 15px;
-    }
-    input[type=number] {
-      width: 80px;
-      text-align: center;
-    }
-    .hidden { display: none; }
-    /* Popup */
-    #popup {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.7);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      visibility: hidden;
-    }
-    #popupContent {
-      background: white;
-      color: black;
-      padding: 20px;
-      border-radius: 10px;
-      text-align: center;
-    }
-    #popup.visible { visibility: visible; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HighLow</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1F2937">
+    <link rel="icon" href="icon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <h1>🃏 High-Low Kartenspiel</h1>
-  <p>Credits: <span id="credits">10</span></p>
-  <div class="card" id="currentCard">?</div>
-
-  <div class="bet-controls">
-    <button class="btn-bet" onclick="setMinBet()">Min</button>
-    <button class="btn-bet" onclick="adjustBet(-5)">-5%</button>
-    <input type="number" id="bet" value="1" min="1">
-    <button class="btn-bet" onclick="adjustBet(5)">+5%</button>
-    <button class="btn-bet" onclick="setMaxBet()">Max</button>
-  </div>
-
-  <div id="guessButtons">
-    <button class="btn-higher" onclick="playRound('h')">Höher</button>
-    <button class="btn-lower" onclick="playRound('l')">Niedriger</button>
-    <button class="btn-equal" onclick="playRound('g')">Gleich</button>
-  </div>
-
-  <p id="nextCardResult"></p>
-  <p id="message"></p>
-
-  <div id="popup">
-    <div id="popupContent">
-      <h2 id="popupText"></h2>
-      <button onclick="startGame()">Neues Spiel</button>
+<body class="bg-gray-900 flex items-center justify-center h-screen">
+    <div id="shuffleAnimation" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="text-white text-2xl font-bold">Karten werden gemischt...</div>
     </div>
-  </div>
+    <div class="bg-gray-800 text-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
+        <button id="menuBtn" class="absolute top-4 right-4 text-gray-300 hover:text-white focus:outline-none">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+        </button>
+        <h1 class="text-2xl font-bold text-center mb-4">HighLow</h1>
+        <div id="gameArea" class="text-center min-h-[400px] flex flex-col justify-between">
+            <div>
+                <p id="credits" class="text-3xl font-bold mb-4">Credits: 10</p>
+                <p id="cardsPlayed" class="text-lg mb-4">Gespielte Karten: 0</p>
+                <div id="currentCard" class="text-2xl font-semibold mb-4 p-4 border-2 border-gray-300 rounded-lg bg-gray-700 shadow-md w-24 h-36 mx-auto flex items-center justify-center">
+                    -
+                </div>
+                <p id="message" class="mb-4 h-16 flex items-center justify-center text-sm"></p>
+            </div>
+            <div id="betSection" class="mb-4">
+                <label for="betAmount" class="block text-sm font-medium text-gray-300">Einsatz:</label>
+                <input type="number" id="betAmount" class="mt-1 p-2 border rounded w-24 text-center bg-gray-700 text-white border-gray-600" min="1" value="1">
+                <div class="flex justify-center space-x-2 mt-2">
+                    <button id="bet20Btn" class="bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-500">20%</button>
+                    <button id="bet50Btn" class="bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-500">50%</button>
+                    <button id="bet80Btn" class="bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-500">80%</button>
+                    <button id="betMaxBtn" class="bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-500">Max.</button>
+                </div>
+            </div>
+            <div class="flex justify-center space-x-4">
+                <button id="higherBtn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Höher</button>
+                <button id="sameBtn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Gleich</button>
+                <button id="lowerBtn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Niedriger</button>
+            </div>
+        </div>
+    </div>
+    <div id="gameOverPopup" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-gray-800 text-white p-6 rounded-lg shadow-lg text-center w-full max-w-md">
+            <h2 id="popupTitle" class="text-2xl font-bold mb-4"></h2>
+            <p id="popupMessage" class="mb-4"></p>
+            <button id="newGameBtn" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-500">Neues Spiel</button>
+        </div>
+    </div>
+    <div id="offCanvasMenu" class="fixed inset-y-0 right-0 w-64 bg-gray-800 text-white p-6 transform translate-x-full transition-transform duration-300 ease-in-out">
+        <button id="closeMenuBtn" class="absolute top-4 right-4 text-gray-300 hover:text-white focus:outline-none">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </button>
+        <h2 class="text-xl font-bold mb-4">Menü</h2>
+        <button id="menuNewGameBtn" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-500 mb-4 w-full">Neues Spiel</button>
+        <h3 class="text-lg font-semibold mb-2">Spielregeln</h3>
+        <ul class="text-sm space-y-2">
+            <li>1. Vor jedem Spiel wird eine 1,5-sekündige Animation angezeigt, die das Mischen des Kartenstapels simuliert. Das "Game Over"-Popup und das Menü werden vorher geschlossen.</li>
+            <li>2. Das Spiel beginnt mit 10 Credits und einer aufgedeckten Karte.</li>
+            <li>3. Setze mindestens 10% deiner Credits (mindestens 1 Credit) über das Eingabefeld oder verwende die Buttons für 20%, 50%, 80% oder Max.</li>
+            <li>4. Wähle, ob die nächste Karte höher, gleich oder niedriger ist, indem du auf den entsprechenden Button klickst.</li>
+            <li>5. <strong>Gewinn</strong>:
+                <ul class="pl-4">
+                    <li>- Richtig bei "höher" oder "niedriger": Du gewinnst deinen Einsatz (Nachricht in Grün).</li>
+                    <li>- Richtig bei "gleich": Du gewinnst deinen Einsatz x13 (Nachricht in Grün).</li>
+                    <li>- Falsch: Du verlierst deinen Einsatz (Nachricht in Rot).</li>
+                </ul>
+            </li>
+            <li>6. Der Nachrichtentext hat einen festen Platzhalter-Bereich, und der gesamte Spiel-Container hat eine konsistente Höhe, auch nach einem Neustart.</li>
+            <li>7. Nach jeder Runde wird der Einsatz auf den Mindesteinsatz zurückgesetzt.</li>
+            <li>8. Die Anzahl der gespielten Karten wird angezeigt.</li>
+            <li>9. Das Spiel endet, wenn keine Credits oder keine Karten mehr übrig sind.</li>
+            <li>10. Bei Spielende erscheint ein Popup (mit begrenzter Breite):
+                <ul class="pl-4">
+                    <li>- Wenn keine Credits oder keine Karten mehr übrig sind: "Game Over" mit dem letzten Tipp und den Karten.</li>
+                    <li>- Sonst: "Spiel Beendet" mit dem aktuellen Highscore (basierend auf den Credits).</li>
+                </ul>
+            </li>
+            <li>11. Klicke im Popup oder im Menü auf "Neues Spiel", um von vorne zu beginnen.</li>
+        </ul>
+    </div>
 
-  <script>
-    const suits = ['♥', '♠', '♦', '♣'];
-    const cardOrder = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
-    const cardValues = Object.fromEntries(cardOrder.map((c, i) => [c, i]));
-    let deck = [];
-    let credits = 10;
-    let currentCard = '';
-    let highscore = 0;
+    <script>
+        const suits = ['♠', '♥', '♦', '♣'];
+        const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+        let deck = [];
+        let currentCard = null;
+        let previousCard = null;
+        let lastGuess = null;
+        let credits = 10;
+        let cardsPlayed = 0;
+        let gameOver = false;
+        let highscore = localStorage.getItem('highscore') ? parseInt(localStorage.getItem('highscore')) : 0;
 
-    function shuffleDeck() {
-      deck = [];
-      for (let suit of suits) {
-        for (let card of cardOrder) {
-          deck.push({ value: card, suit: suit });
+        const creditsDisplay = document.getElementById('credits');
+        const cardsPlayedDisplay = document.getElementById('cardsPlayed');
+        const currentCardDisplay = document.getElementById('currentCard');
+        const messageDisplay = document.getElementById('message');
+        const betAmountInput = document.getElementById('betAmount');
+        const higherBtn = document.getElementById('higherBtn');
+        const sameBtn = document.getElementById('sameBtn');
+        const lowerBtn = document.getElementById('lowerBtn');
+        const gameOverPopup = document.getElementById('gameOverPopup');
+        const popupTitle = document.getElementById('popupTitle');
+        const popupMessage = document.getElementById('popupMessage');
+        const newGameBtn = document.getElementById('newGameBtn');
+        const bet20Btn = document.getElementById('bet20Btn');
+        const bet50Btn = document.getElementById('bet50Btn');
+        const bet80Btn = document.getElementById('bet80Btn');
+        const betMaxBtn = document.getElementById('betMaxBtn');
+        const shuffleAnimation = document.getElementById('shuffleAnimation');
+        const menuBtn = document.getElementById('menuBtn');
+        const offCanvasMenu = document.getElementById('offCanvasMenu');
+        const closeMenuBtn = document.getElementById('closeMenuBtn');
+        const menuNewGameBtn = document.getElementById('menuNewGameBtn');
+
+        function createDeck() {
+            deck = [];
+            for (let suit of suits) {
+                for (let value of values) {
+                    deck.push({ suit, value });
+                }
+            }
+            shuffleDeck();
         }
-      }
-      for (let i = deck.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [deck[i], deck[j]] = [deck[j], deck[i]];
-      }
-    }
 
-    function startGame() {
-      shuffleDeck();
-      credits = 10;
-      currentCard = deck.pop();
-      updateUI();
-      document.getElementById('message').textContent = '';
-      document.getElementById('nextCardResult').textContent = '';
-      document.getElementById('guessButtons').classList.remove('hidden');
-      document.getElementById('popup').classList.remove('visible');
-    }
+        function shuffleDeck() {
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+        }
 
-    function updateUI() {
-      document.getElementById('credits').textContent = credits;
-      document.getElementById('currentCard').textContent = currentCard.value + currentCard.suit;
-      document.getElementById('bet').value = 1;
-    }
+        function getCardValue(card) {
+            return values.indexOf(card.value) + 2;
+        }
 
-    function setMinBet() {
-      document.getElementById('bet').value = Math.max(1, Math.floor(credits * 0.1));
-    }
-    function setMaxBet() {
-      document.getElementById('bet').value = Math.max(1, Math.floor(credits * 0.9));
-    }
-    function adjustBet(percent) {
-      let currentBet = parseInt(document.getElementById('bet').value);
-      let change = Math.round(credits * percent / 100);
-      document.getElementById('bet').value = Math.max(1, currentBet + change);
-    }
+        function drawCard() {
+            if (deck.length === 0) {
+                endGame();
+                return null;
+            }
+            cardsPlayed++;
+            cardsPlayedDisplay.textContent = `Gespielte Karten: ${cardsPlayed}`;
+            return deck.pop();
+        }
 
-    function compareCards(a, b) {
-      if (cardValues[b.value] > cardValues[a.value]) return 'h';
-      if (cardValues[b.value] < cardValues[a.value]) return 'l';
-      return 'g';
-    }
+        async function startGame() {
+            // Close game over popup and menu before shuffle animation
+            gameOverPopup.classList.add('hidden');
+            offCanvasMenu.classList.add('translate-x-full');
+            
+            // Show shuffle animation
+            shuffleAnimation.classList.remove('hidden');
+            await new Promise(resolve => setTimeout(resolve, 1500)); // 1.5 seconds animation
+            shuffleAnimation.classList.add('hidden');
 
-    function playRound(guess) {
-      let bet = parseInt(document.getElementById('bet').value);
-      const minBet = Math.max(1, Math.floor(credits * 0.1));
-      const maxBet = Math.max(1, Math.floor(credits * 0.9));
+            createDeck();
+            credits = 10;
+            cardsPlayed = 0;
+            gameOver = false;
+            previousCard = null;
+            lastGuess = null;
+            creditsDisplay.textContent = `Credits: ${credits}`;
+            cardsPlayedDisplay.textContent = `Gespielte Karten: ${cardsPlayed}`;
+            higherBtn.disabled = false;
+            sameBtn.disabled = false;
+            lowerBtn.disabled = false;
+            betAmountInput.disabled = false;
+            bet20Btn.disabled = false;
+            bet50Btn.disabled = false;
+            bet80Btn.disabled = false;
+            betMaxBtn.disabled = false;
+            currentCard = drawCard();
+            currentCardDisplay.textContent = `${currentCard.value}${currentCard.suit}`;
+            messageDisplay.textContent = '';
+            updateBetInput();
+        }
 
-      if (bet < minBet || bet > maxBet) {
-        alert(`Einsatz muss zwischen ${minBet} und ${maxBet} liegen.`);
-        return;
-      }
+        function updateBetInput() {
+            const minBet = Math.max(1, Math.ceil(credits * 0.1));
+            betAmountInput.min = minBet;
+            betAmountInput.max = credits;
+            betAmountInput.value = minBet;
+        }
 
-      if (deck.length === 0 || credits <= 0) {
-        endGame();
-        return;
-      }
+        function endGame() {
+            gameOver = true;
+            higherBtn.disabled = true;
+            sameBtn.disabled = true;
+            lowerBtn.disabled = true;
+            betAmountInput.disabled = true;
+            bet20Btn.disabled = true;
+            bet50Btn.disabled = true;
+            bet80Btn.disabled = true;
+            betMaxBtn.disabled = true;
 
-      const nextCard = deck.pop();
-      document.getElementById('nextCardResult').textContent = `Nächste Karte: ${nextCard.value}${nextCard.suit}`;
+            if (credits > highscore) {
+                highscore = credits;
+                localStorage.setItem('highscore', highscore);
+            }
 
-      const result = compareCards(currentCard, nextCard);
+            const guessText = lastGuess === 'higher' ? 'höher' : lastGuess === 'lower' ? 'niedriger' : lastGuess === 'same' ? 'gleich' : null;
+            popupTitle.textContent = credits <= 0 || deck.length === 0 ? 'Game Over' : 'Spiel Beendet';
+            if (credits <= 0 || deck.length === 0) {
+                const reason = credits <= 0 ? 'keine Credits mehr übrig sind' : 'keine Karten mehr im Stapel sind';
+                popupMessage.textContent = guessText && previousCard && currentCard 
+                    ? `Du hast auf "${guessText}" getippt. Vorherige Karte: ${previousCard.value}${previousCard.suit}, gezogene Karte: ${currentCard.value}${currentCard.suit}. Verloren, weil ${reason}!`
+                    : `Verloren, weil ${reason}!`;
+            } else {
+                popupMessage.textContent = `Highscore: ${highscore} Credits`;
+            }
+            messageDisplay.className = 'mb-4 text-red-500';
+            gameOverPopup.classList.remove('hidden');
+        }
 
-      if (guess === result) {
-        const multiplier = guess === 'g' ? 13 : 1;
-        const win = bet * multiplier;
-        credits += win;
-        document.getElementById('message').textContent = `✅ Richtig! Du gewinnst ${win} Credits.`;
-      } else {
-        credits -= bet;
-        document.getElementById('message').textContent = `❌ Falsch. Du verlierst ${bet} Credits.`;
-      }
+        function playRound(guess) {
+            if (gameOver) return;
 
-      currentCard = nextCard;
-      updateUI();
+            const bet = parseInt(betAmountInput.value);
+            const minBet = Math.max(1, Math.ceil(credits * 0.1));
 
-      if (credits > highscore) highscore = credits;
+            if (bet < minBet || bet > credits) {
+                messageDisplay.textContent = `Einsatz muss zwischen ${minBet} und ${credits} liegen!`;
+                messageDisplay.className = 'mb-4 text-red-500';
+                return;
+            }
 
-      if (credits <= 0 || deck.length === 0) {
-        endGame();
-      }
-    }
+            previousCard = currentCard;
+            lastGuess = guess;
+            const newCard = drawCard();
+            if (!newCard) return;
 
-    function endGame() {
-      document.getElementById('guessButtons').classList.add('hidden');
-      let popupText = credits > 0 ? `🏆 Highscore: ${highscore}` : '💀 Game Over';
-      document.getElementById('popupText').textContent = popupText;
-      document.getElementById('popup').classList.add('visible');
-    }
+            const currentValue = getCardValue(currentCard);
+            const newValue = getCardValue(newCard);
+            let win = false;
+            let multiplier = 1;
 
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js');
-    }
+            if (guess === 'higher' && newValue > currentValue) {
+                win = true;
+            } else if (guess === 'lower' && newValue < currentValue) {
+                win = true;
+            } else if (guess === 'same' && newValue === currentValue) {
+                win = true;
+                multiplier = 13;
+            }
 
-    startGame();
-  </script>
+            const guessText = guess === 'higher' ? 'höher' : guess === 'lower' ? 'niedriger' : 'gleich';
+            if (win) {
+                credits += bet * multiplier;
+                messageDisplay.textContent = `Richtig! Vorherige Karte: ${previousCard.value}${previousCard.suit}, du hast auf "${guessText}" getippt. Gewinn: ${bet * multiplier} Credits.`;
+                messageDisplay.className = 'mb-4 text-green-500';
+            } else {
+                credits -= bet;
+                messageDisplay.textContent = `Falsch! Vorherige Karte: ${previousCard.value}${previousCard.suit}, du hast auf "${guessText}" getippt. Verlust: ${bet} Credits.`;
+                messageDisplay.className = 'mb-4 text-red-500';
+            }
+
+            currentCard = newCard;
+            currentCardDisplay.textContent = `${currentCard.value}${currentCard.suit}`;
+            creditsDisplay.textContent = `Credits: ${credits}`;
+
+            if (credits <= 0) {
+                endGame();
+            } else if (deck.length === 0) {
+                endGame();
+            } else {
+                updateBetInput();
+            }
+        }
+
+        // Off-Canvas Menu Logic
+        menuBtn.addEventListener('click', () => {
+            offCanvasMenu.classList.remove('translate-x-full');
+        });
+
+        closeMenuBtn.addEventListener('click', () => {
+            offCanvasMenu.classList.add('translate-x-full');
+        });
+
+        menuNewGameBtn.addEventListener('click', () => {
+            offCanvasMenu.classList.add('translate-x-full');
+            startGame();
+        });
+
+        bet20Btn.addEventListener('click', () => {
+            const bet = Math.max(1, Math.ceil(credits * 0.2));
+            if (bet <= credits) betAmountInput.value = bet;
+        });
+
+        bet50Btn.addEventListener('click', () => {
+            const bet = Math.max(1, Math.ceil(credits * 0.5));
+            if (bet <= credits) betAmountInput.value = bet;
+        });
+
+        bet80Btn.addEventListener('click', () => {
+            const bet = Math.max(1, Math.ceil(credits * 0.8));
+            if (bet <= credits) betAmountInput.value = bet;
+        });
+
+        betMaxBtn.addEventListener('click', () => {
+            betAmountInput.value = credits;
+        });
+
+        higherBtn.addEventListener('click', () => playRound('higher'));
+        sameBtn.addEventListener('click', () => playRound('same'));
+        lowerBtn.addEventListener('click', () => playRound('lower'));
+        newGameBtn.addEventListener('click', startGame);
+
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => {
+                        console.log('Service Worker registered with scope:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('Service Worker registration failed:', error);
+                    });
+            });
+        }
+
+        startGame();
+    </script>
 </body>
 </html>
