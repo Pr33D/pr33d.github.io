@@ -8,6 +8,14 @@
     <meta name="theme-color" content="#1F2937">
     <link rel="icon" href="icon.png">
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        #overlay {
+            z-index: 40; /* Hinter dem Menü (z-index 50) */
+        }
+        #offCanvasMenu {
+            z-index: 50; /* Über dem Overlay */
+        }
+    </style>
 </head>
 <body class="bg-gray-900 flex items-center justify-center h-screen">
     <div id="shuffleAnimation" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
@@ -53,7 +61,7 @@
             <button id="newGameBtn" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-500">Neues Spiel</button>
         </div>
     </div>
-    <div id="offCanvasMenu" class="fixed inset-y-0 right-0 w-64 bg-gray-800 text-white p-6 transform translate-x-full transition-transform duration-300 ease-in-out">
+    <div id="offCanvasMenu" class="fixed inset-y-0 right-0 w-64 bg-gray-800 text-white p-6 transform translate-x-full transition-transform duration-300 ease-in-out overflow-y-auto max-h-full">
         <button id="closeMenuBtn" class="absolute top-4 right-4 text-gray-300 hover:text-white focus:outline-none">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -87,6 +95,7 @@
             <li>11. Klicke im Popup oder im Menü auf "Neues Spiel", um von vorne zu beginnen.</li>
         </ul>
     </div>
+    <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 hidden" aria-hidden="true"></div>
 
     <script>
         const suits = ['♠', '♥', '♦', '♣'];
@@ -121,6 +130,7 @@
         const offCanvasMenu = document.getElementById('offCanvasMenu');
         const closeMenuBtn = document.getElementById('closeMenuBtn');
         const menuNewGameBtn = document.getElementById('menuNewGameBtn');
+        const overlay = document.getElementById('overlay');
 
         function createDeck() {
             deck = [];
@@ -157,6 +167,7 @@
             // Close game over popup and menu before shuffle animation
             gameOverPopup.classList.add('hidden');
             offCanvasMenu.classList.add('translate-x-full');
+            overlay.classList.add('hidden');
             
             // Show shuffle animation
             shuffleAnimation.classList.remove('hidden');
@@ -280,14 +291,17 @@
         // Off-Canvas Menu Logic
         menuBtn.addEventListener('click', () => {
             offCanvasMenu.classList.remove('translate-x-full');
+            overlay.classList.remove('hidden');
         });
 
         closeMenuBtn.addEventListener('click', () => {
             offCanvasMenu.classList.add('translate-x-full');
+            overlay.classList.add('hidden');
         });
 
         menuNewGameBtn.addEventListener('click', () => {
             offCanvasMenu.classList.add('translate-x-full');
+            overlay.classList.add('hidden');
             startGame();
         });
 
